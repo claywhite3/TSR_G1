@@ -1199,6 +1199,32 @@ function startBarcodeDetection(video) {
   }
 }
 
+function beep(type = 'scan') {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    if (type === 'complete') {
+      // Two-tone ascending chime for section complete
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.35);
+    } else {
+      // Single soft beep for individual scan
+      osc.frequency.setValueAtTime(1046, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.12);
+    }
+  } catch(e) {}
+}
+
 function handleScannedValue(raw) {
   const value = raw.trim();
   const type  = classifyBarcode(value);
@@ -1212,10 +1238,12 @@ function handleScannedValue(raw) {
   if (type === 'rail') {
     if (state.scanRail === value) return; // already got it, ignore duplicate reads
     state.scanRail = value;
+    beep('scan');
     showToast('Rail captured ✓');
   } else {
     if (state.scanCamera === value) return;
     state.scanCamera = value;
+    beep('scan');
     showToast('Camera captured ✓');
   }
 
@@ -1229,6 +1257,7 @@ function handleScannedValue(raw) {
 
 async function finalizeScan() {
   state.scanDone = true;
+  beep('complete');
   stopInlineCamera();
 
   const rail   = state.scanRail   || '';
