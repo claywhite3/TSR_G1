@@ -70,6 +70,15 @@
   /* ── CONTENT ── */
   .content { flex: 1; padding: 20px; overflow-y: auto; }
 
+  /* ── SYNC SPINNER ── */
+  .sync-spinner {
+    width: 48px; height: 48px; border-radius: 50%;
+    border: 4px solid var(--gray-200);
+    border-top-color: var(--blue);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   /* ── STORE INDEX ── */
   #screen-index {
     background: white;
@@ -420,7 +429,15 @@
     <h1>Rail Scan</h1>
     <p>Select a store to begin scanning</p>
   </div>
-  <div class="store-list">
+
+  <!-- Sync loading state -->
+  <div id="sync-loading" style="display:none; flex-direction:column; align-items:center; justify-content:center; flex:1; padding:40px 24px; text-align:center;">
+    <div class="sync-spinner"></div>
+    <div style="font-size:18px; font-weight:700; color:var(--gray-900); margin-top:20px;">Fetching latest data…</div>
+    <div style="font-size:14px; color:var(--gray-500); margin-top:8px;">Pulling scan records from the cloud</div>
+  </div>
+
+  <div class="store-list" id="store-list-wrap">
     <div class="store-list-label">Stores</div>
     <div id="store-list-items"></div>
   </div>
@@ -431,12 +448,12 @@
 ════════════════════════════════════════════ -->
 <div class="screen" id="screen-zones">
   <div class="topbar">
-    <button class="topbar-back" onclick="goTo('screen-index'); syncFromSheet().then(() => renderStoreIndex())">‹</button>
+    <button class="topbar-back" onclick="goTo('screen-index'); document.getElementById('sync-loading').style.display='flex'; document.getElementById('store-list-wrap').style.display='none'; syncFromSheet().then(() => { document.getElementById('sync-loading').style.display='none'; document.getElementById('store-list-wrap').style.display='block'; renderStoreIndex(); })">‹</button>
     <div class="topbar-center">
       <div class="topbar-label" id="zones-label">Validation</div>
       <div class="topbar-title" id="zones-title">Store 100</div>
       <div class="topbar-sub" id="zones-sub"></div>
-      <div id="zones-sync-indicator" style="font-size:11px;color:var(--gray-400);margin-top:2px;display:none;">↻ Syncing…</div>
+      <div id="zones-sync-indicator" style="font-size:12px; font-weight:600; color:var(--blue); margin-top:4px; display:none;">↻ Syncing latest data…</div>
     </div>
     <div class="avatar">CW</div>
   </div>
@@ -1400,8 +1417,14 @@ function showToast(msg) {
 // INIT
 // ═══════════════════════════════════════════
 renderStoreIndex();
-// Pre-load all scan data on startup
-syncFromSheet().then(() => renderStoreIndex());
+// Show loading state, sync, then reveal stores with fresh data
+document.getElementById('sync-loading').style.display = 'flex';
+document.getElementById('store-list-wrap').style.display = 'none';
+syncFromSheet().then(() => {
+  document.getElementById('sync-loading').style.display = 'none';
+  document.getElementById('store-list-wrap').style.display = 'block';
+  renderStoreIndex();
+});
 </script>
 </body>
 </html>
