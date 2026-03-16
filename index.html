@@ -423,7 +423,7 @@
 ════════════════════════════════════════════ -->
 <div class="screen" id="screen-zones">
   <div class="topbar">
-    <button class="topbar-back" onclick="goTo('screen-index')">‹</button>
+    <button class="topbar-back" onclick="goTo('screen-index'); syncFromSheet().then(() => renderStoreIndex())">‹</button>
     <div class="topbar-center">
       <div class="topbar-label" id="zones-label">Validation</div>
       <div class="topbar-title" id="zones-title">Store 100</div>
@@ -448,7 +448,7 @@
 ════════════════════════════════════════════ -->
 <div class="screen" id="screen-aisles">
   <div class="topbar">
-    <button class="topbar-back" onclick="goTo('screen-zones')">‹</button>
+    <button class="topbar-back" onclick="goTo('screen-zones'); syncFromSheet().then(() => renderZones())">‹</button>
     <div class="topbar-center">
       <div class="topbar-label">Zone Overview</div>
       <div class="topbar-title" id="aisles-title">Zone A</div>
@@ -805,18 +805,6 @@ function selectZone(zoneId) {
   state.zoneId = zoneId;
   renderAisles();
   goTo('screen-aisles');
-}
-
-// Also sync when user taps back to zone screen
-const _origGoTo = goTo;
-function goTo(screenId) {
-  _origGoTo(screenId);
-  if (screenId === 'screen-zones') {
-    syncFromSheet().then(() => renderZones());
-  }
-  if (screenId === 'screen-index') {
-    syncFromSheet().then(() => renderStoreIndex());
-  }
 }
 
 // ═══════════════════════════════════════════
