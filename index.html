@@ -428,6 +428,7 @@
       <div class="topbar-label" id="zones-label">Validation</div>
       <div class="topbar-title" id="zones-title">Store 100</div>
       <div class="topbar-sub" id="zones-sub"></div>
+      <div id="zones-sync-indicator" style="font-size:11px;color:var(--gray-400);margin-top:2px;display:none;">↻ Syncing…</div>
     </div>
     <div class="avatar">CW</div>
   </div>
@@ -713,10 +714,41 @@ function renderStoreIndex() {
   }
 }
 
+// ═══════════════════════════════════════════
+// SYNC FROM GOOGLE SHEETS
+// ═══════════════════════════════════════════
+async function syncFromSheet() {
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL_HERE') return;
+  const indicator = document.getElementById('zones-sync-indicator');
+  if (indicator) indicator.style.display = 'block';
+  try {
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=read`);
+    const data = await res.json();
+    if (data.status === 'ok' && data.scans) {
+      data.scans.forEach(s => {
+        const k = scanKey(s.store, s.zone, s.aisle, parseInt(s.section));
+        if (!state.scans[k]) {
+          state.scans[k] = {
+            rail: s.rail_barcode,
+            camera: s.camera_barcode,
+            timestamp: s.timestamp
+          };
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('Sync failed:', e);
+  } finally {
+    if (indicator) indicator.style.display = 'none';
+  }
+}
+
 function selectStore(storeId) {
   state.storeId = storeId;
+  // Show zones immediately with local data, then refresh from sheet
   renderZones();
   goTo('screen-zones');
+  syncFromSheet().then(() => renderZones());
 }
 
 // ═══════════════════════════════════════════
@@ -773,6 +805,18 @@ function selectZone(zoneId) {
   state.zoneId = zoneId;
   renderAisles();
   goTo('screen-aisles');
+}
+
+// Also sync when user taps back to zone screen
+const _origGoTo = goTo;
+function goTo(screenId) {
+  _origGoTo(screenId);
+  if (screenId === 'screen-zones') {
+    syncFromSheet().then(() => renderZones());
+  }
+  if (screenId === 'screen-index') {
+    syncFromSheet().then(() => renderStoreIndex());
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -1223,6 +1267,8 @@ function showToast(msg) {
 // INIT
 // ═══════════════════════════════════════════
 renderStoreIndex();
+// Pre-load all scan data on startup
+syncFromSheet().then(() => renderStoreIndex());
 </script>
 </body>
 </html>
