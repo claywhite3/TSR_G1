@@ -284,6 +284,14 @@
     background: var(--gray-100); color: var(--gray-700); font-size: 15px; font-weight: 600;
     cursor: pointer; margin-bottom: 10px;
   }
+  .rescan-btn {
+    width: 100%; height: 48px; border-radius: 14px; border: none;
+    background: #FFF7ED; color: var(--orange); font-size: 15px; font-weight: 600;
+    cursor: pointer; margin-bottom: 10px; border: 1.5px solid #FED7AA;
+    transition: all 0.15s;
+  }
+  .rescan-btn:hover { background: #FFEDD5; }
+  .rescan-btn:active { transform: scale(0.98); }
 
   /* ── SCAN FIELD (manual entry) ── */
   .scan-field { margin-top: 4px; }
@@ -559,6 +567,9 @@
       </div>
       <button class="next-section-btn" id="next-section-btn" onclick="goToNextFromScan()">
         Next Section →
+      </button>
+      <button class="rescan-btn" id="rescan-btn" onclick="rescanSection()" style="display:none">
+        ↩ Rescan This Section
       </button>
       <button class="back-to-list-btn" onclick="leaveScanScreen()">Save &amp; Exit</button>
     </div>
@@ -991,8 +1002,6 @@ function openScanScreen(sectionId) {
   document.getElementById('scan-sub').textContent   = `Zone ${state.zoneId} · Aisle ${state.aisleId}`;
 
   // Reset UI
-  document.getElementById('scan-active-view').style.display = 'block';
-  document.getElementById('scan-done-view').style.display   = 'none';
   document.getElementById('manual-entry-panel').style.display = 'none';
   document.getElementById('manual-input').value = '';
   document.getElementById('manual-result').className = 'scan-result';
@@ -1000,8 +1009,41 @@ function openScanScreen(sectionId) {
   updateScanCards();
   goTo('screen-scan');
 
-  // Start camera
-  startInlineCamera();
+  // If already scanned, go straight to done state — no camera
+  if (existing && existing.rail && existing.camera) {
+    state.scanDone = true;
+    document.getElementById('scan-active-view').style.display = 'none';
+    document.getElementById('scan-done-view').style.display   = 'block';
+    document.getElementById('scan-done-sub').textContent =
+      `Zone ${state.zoneId} · Aisle ${state.aisleId} · Section ${sectionId}`;
+    // Find next section for the Next button
+    const sections = STORES[state.storeId].zones[state.zoneId][state.aisleId];
+    const currentIdx = sections.indexOf(sectionId);
+    let nextSection = null;
+    for (let i = currentIdx + 1; i < sections.length; i++) {
+      if (!isScanned(state.storeId, state.zoneId, state.aisleId, sections[i])) { nextSection = sections[i]; break; }
+    }
+    if (!nextSection) {
+      for (let i = 0; i < currentIdx; i++) {
+        if (!isScanned(state.storeId, state.zoneId, state.aisleId, sections[i])) { nextSection = sections[i]; break; }
+      }
+    }
+    state.nextSection = nextSection;
+    const nextBtn = document.getElementById('next-section-btn');
+    if (nextSection) {
+      nextBtn.textContent = `Next: Section ${nextSection} →`;
+      nextBtn.style.display = 'flex';
+    } else {
+      nextBtn.style.display = 'none';
+    }
+    document.getElementById('rescan-btn').style.display = 'block';
+  } else {
+    document.getElementById('scan-active-view').style.display = 'block';
+    document.getElementById('scan-done-view').style.display   = 'none';
+    document.getElementById('rescan-btn').style.display = 'none';
+    // Start camera
+    startInlineCamera();
+  }
 }
 
 function updateScanCards() {
@@ -1172,6 +1214,7 @@ async function finalizeScan() {
   // Show done state
   document.getElementById('scan-active-view').style.display = 'none';
   document.getElementById('scan-done-view').style.display   = 'block';
+  document.getElementById('rescan-btn').style.display = 'block';
   document.getElementById('scan-done-sub').textContent =
     `Zone ${state.zoneId} · Aisle ${state.aisleId} · Section ${state.sectionId}`;
 
@@ -1182,6 +1225,25 @@ async function finalizeScan() {
   } else {
     nextBtn.style.display = 'none';
   }
+}
+
+function rescanSection() {
+  // Clear existing scan data for this section
+  state.scanRail   = null;
+  state.scanCamera = null;
+  state.scanDone   = false;
+  delete state.scans[scanKey(state.storeId, state.zoneId, state.aisleId, state.sectionId)];
+
+  // Reset to scanning state
+  document.getElementById('scan-done-view').style.display   = 'none';
+  document.getElementById('scan-active-view').style.display = 'block';
+  document.getElementById('rescan-btn').style.display = 'none';
+  document.getElementById('manual-entry-panel').style.display = 'none';
+  document.getElementById('manual-input').value = '';
+  document.getElementById('manual-result').className = 'scan-result';
+
+  updateScanCards();
+  startInlineCamera();
 }
 
 function goToNextFromScan() {
