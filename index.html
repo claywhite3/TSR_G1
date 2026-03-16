@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>TopStock Rail Scan</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/scandit-sdk@5.x/build/browser/index.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   
@@ -1096,24 +1096,79 @@ function updateScanCards() {
   }
 }
 
+const SCANDIT_KEY = 'AlUnDj2ZGkDRGfE9C/k6pAMRkzcwGSCpQw9DqXMuY2UaeBzEonCb84AoJC3mQ1cMaFyltq5M3cQdT1gAZwC7HFx7r78OSHHC9Hl/CAcIRQ04Aui+AQqBIm80vkJaenhoFlM0Dv5KcuPVcTx43nNZsBhj+OfDdVZdvnwxZCNf8ZmrQ+1YRSE+QWNIK9CfVJkyMFZhS9BD8nfUQ97B6VhQygIOQ26DegCLV0Wed7IVEBDQSgorbHZVGAJeiC/kSY9XeFPq2v1FBb2ZFxJn/m6p2idt6HeEE7xIzECW/SxesuugUpMhu3nSg8tScG+gFX9u3Wo8VNRAouCbTePLBmyglBBT6p2kfGW/eiUv1S4OegaTM1+BvWqUOrVLFRxudz9iCVH71ExmvQ1MUuKr7mFcI2YLRZHidxd3GA8H0uJZNKGyY9nP/nraxEkdcZJ9XUgn73LVqThydq28E8yA3nqoMtoop6WEfgTMlnajwToTVLwiRmzTCTrWKnIZkP1KYYjCoVHbI7t4nNHjYCdjpzCaJOMZWuKhq7Z0FkJixDEF9OUIagq6gf01IXz/1N9BeP9LDIudX9X56tip6yzZbdzaCSCnvlJ2PrYJ0ocmm4qJnXNXju+njfqau9DgJWn7bucU4o2hUKVbaUCheLWorsVq+uJZ+PPqtLJ0TxFi8Q8mOaJG7ffU8yB081rn1dqEGKZ/b6hvUgCwpm5NwDtOD5di/ryYL+GDiuYmESzWtYIrwYp7E4VGrW9sE/B4ho3+kG6JClchA3AOZ/DOpzV8RF5ayI6CBM3PRvtlF4xC5Gx+z9KtIMOxw8PZv3hg6A6y9JskeJWiYj3EX+ELmITxKl7CsmHEPvjgbwJAO7mDAItDnh4r25LuHh11eB4lJqLJdvUUptMSk49hwY09mQby4Kz2YNhvhzYD1WJCWJT4cUR6iAzEXKBGFpWjmdH9e1Df9jfnlCe2oKD51JbjxcorauMzuKeS8I8iTFSJ5a1OREN+6GMUVy/0+dlUjia3c1rN+f8wOTdQyi782lRueVU75cqYdg4HD6HXl7R0beNhHkjBPfuuMHdX9M2qX9ALdSGSz7XMRH68CDUsVkoksICCi5UtMobZx5AnrnNmdxsIBAyI4yMEh07WMmLlAVLV2iWgboi/JWftQdZ775s24P9IV8uT1DVJv1W0Ik7204jQYUTzZyooClxw/e4w6Cx1HrnGDCTbwOk=';
+
+let scanditPicker = null;
+
 async function startInlineCamera() {
   stopInlineCamera();
-  const video = document.getElementById('camera-video');
   const errEl = document.getElementById('vf-camera-error');
+  const video  = document.getElementById('camera-video');
+  video.style.display = 'none'; // Scandit manages its own element
+
   try {
-    state.cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    await ScanditSDK.configure(SCANDIT_KEY, {
+      engineLocation: 'https://cdn.jsdelivr.net/npm/scandit-sdk@5.x/build/engine/'
     });
-    video.srcObject = state.cameraStream;
+
+    const container = document.querySelector('.viewfinder-container');
+
+    scanditPicker = await ScanditSDK.BarcodePicker.create(container, {
+      playSoundOnScan: true,
+      vibrateOnScan: true,
+      scanningPaused: false,
+      guiStyle: ScanditSDK.BarcodePicker.GuiStyle.LASER,
+      videoFit: ScanditSDK.BarcodePicker.ObjectFit.COVER,
+      visible: true,
+      cameraType: ScanditSDK.Camera.Type.BACK,
+    });
+
+    const settings = new ScanditSDK.ScanSettings({
+      enabledSymbologies: [
+        ScanditSDK.Symbology.CODE128,
+        ScanditSDK.Symbology.CODE39,
+        ScanditSDK.Symbology.EAN13,
+        ScanditSDK.Symbology.EAN8,
+        ScanditSDK.Symbology.UPCA,
+        ScanditSDK.Symbology.UPCE,
+        ScanditSDK.Symbology.CODE93,
+        ScanditSDK.Symbology.ITF,
+      ],
+      codeDuplicateFilter: 1500,
+    });
+
+    scanditPicker.applyScanSettings(settings);
+    scanditPicker.on('scan', result => {
+      if (state.scanDone) return;
+      const code = result.barcodes[0].data;
+      handleScannedValue(code);
+    });
+
     errEl.style.display = 'none';
-    startBarcodeDetection(video);
+
   } catch (e) {
-    errEl.style.display = 'flex';
-    showManualEntry();
+    console.warn('Scandit failed, falling back to BarcodeDetector:', e);
+    video.style.display = 'block';
+    // Fallback to native BarcodeDetector
+    try {
+      state.cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      video.srcObject = state.cameraStream;
+      errEl.style.display = 'none';
+      startBarcodeDetection(video);
+    } catch (e2) {
+      errEl.style.display = 'flex';
+      showManualEntry();
+    }
   }
 }
 
 function stopInlineCamera() {
+  if (scanditPicker) {
+    try { scanditPicker.destroy(); } catch(e) {}
+    scanditPicker = null;
+  }
   if (state.cameraStream) {
     state.cameraStream.getTracks().forEach(t => t.stop());
     state.cameraStream = null;
@@ -1122,11 +1177,13 @@ function stopInlineCamera() {
     clearInterval(state.scanInterval);
     state.scanInterval = null;
   }
+  // Restore video element visibility for fallback
+  const video = document.getElementById('camera-video');
+  if (video) video.style.display = 'block';
 }
 
 function startBarcodeDetection(video) {
   if (state.scanInterval) clearInterval(state.scanInterval);
-
   if ('BarcodeDetector' in window) {
     const detector = new BarcodeDetector({
       formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'itf', 'codabar', 'code_93']
@@ -1136,13 +1193,10 @@ function startBarcodeDetection(video) {
       if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
       try {
         const barcodes = await detector.detect(video);
-        if (barcodes.length > 0) {
-          handleScannedValue(barcodes[0].rawValue);
-        }
+        if (barcodes.length > 0) handleScannedValue(barcodes[0].rawValue);
       } catch (e) {}
     }, 250);
   }
-  // If BarcodeDetector not available camera still shows, manual entry is the path
 }
 
 function handleScannedValue(raw) {
