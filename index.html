@@ -1109,17 +1109,21 @@ async function finalizeScan() {
   const key = scanKey(state.storeId, state.zoneId, state.aisleId, state.sectionId);
   state.scans[key] = { rail, camera, timestamp };
 
-  // POST to Google Sheets
+  // POST to Google Sheets — use form encoding to survive Google's redirect
   if (APPS_SCRIPT_URL && APPS_SCRIPT_URL !== 'YOUR_APPS_SCRIPT_URL_HERE') {
     try {
+      const formData = new FormData();
+      formData.append('store', state.storeId);
+      formData.append('zone', state.zoneId);
+      formData.append('aisle', state.aisleId);
+      formData.append('section', state.sectionId);
+      formData.append('rail_barcode', rail);
+      formData.append('camera_barcode', camera);
+      formData.append('timestamp', timestamp);
       await fetch(APPS_SCRIPT_URL, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          store: state.storeId, zone: state.zoneId,
-          aisle: state.aisleId, section: state.sectionId,
-          rail_barcode: rail, camera_barcode: camera, timestamp
-        })
+        method: 'POST',
+        mode: 'no-cors',
+        body: formData
       });
     } catch (e) { console.warn('Sheets sync failed:', e); }
   }
