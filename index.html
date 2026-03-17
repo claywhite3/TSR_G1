@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>TopStock Rail Scan</title>
 <script src="https://cdn.jsdelivr.net/npm/scandit-web-datacapture-barcode@6.x/build/index.js"></script>
+<script>
+  window.addEventListener('load', () => {
+    // Detect which global the SDK exposes
+    const possible = ['Scandit', 'ScanditBarcode', 'ScanditSDK', 'SDCBarcode', 'SDCCore'];
+    possible.forEach(name => {
+      if (typeof window[name] !== 'undefined') {
+        console.log('Scandit global found:', name, window[name]);
+        window.Scandit = window[name];
+      }
+    });
+  });
+</script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   
