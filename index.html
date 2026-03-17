@@ -22,6 +22,9 @@
     DataCaptureView,
     Camera,
     FrameSourceState,
+    RectangularViewfinder,
+    RectangularViewfinderStyle,
+    RectangularViewfinderLineStyle,
   } from "@scandit/web-datacapture-core";
   import {
     BarcodeCapture,
@@ -36,6 +39,9 @@
     DataCaptureView,
     Camera,
     FrameSourceState,
+    RectangularViewfinder,
+    RectangularViewfinderStyle,
+    RectangularViewfinderLineStyle,
     BarcodeCapture,
     BarcodeCaptureSettings,
     BarcodeCaptureOverlay,
@@ -1174,17 +1180,29 @@ async function startInlineCamera() {
     const SDC = window.ScanditSDK;
     if (!SDC || !SDC.DataCaptureContext) throw new Error('Scandit SDK not available');
 
-    // Configure context with license key and barcode loader
-    scanditContext = new SDC.DataCaptureContext(SCANDIT_KEY);
+    const container = document.querySelector('.viewfinder-container');
+    video.style.display = 'none';
 
-    // Load barcode engine (required in v8)
-    await SDC.barcodeCaptureLoader.load(scanditContext, {
-      libraryLocation: 'https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-barcode@8.1.0/build/engine/'
+    // 1. Create view and connect to container FIRST (before context)
+    scanditView = new SDC.DataCaptureView();
+    const camera = SDC.Camera.pickBestGuess();
+    const cameraSettings = SDC.BarcodeCapture.recommendedCameraSettings;
+    await camera.applySettings(cameraSettings);
+    void camera.switchToDesiredState(SDC.FrameSourceState.On);
+    scanditView.connectToElement(container, { camera });
+    scanditView.showProgressBar();
+
+    // 2. Create context with license key, engine location, and barcode loader
+    scanditContext = await SDC.DataCaptureContext.forLicenseKey(SCANDIT_KEY, {
+      libraryLocation: 'https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-barcode@8.1.0/build/engine/',
+      moduleLoaders: [SDC.barcodeCaptureLoader()]
     });
 
-    await scanditContext.setFrameSource(SDC.Camera.default);
+    scanditView.hideProgressBar();
+    await scanditView.setContext(scanditContext);
+    await scanditContext.setFrameSource(camera);
 
-    // Set up barcode capture settings
+    // 3. Configure barcode settings
     const settings = new SDC.BarcodeCaptureSettings();
     settings.enableSymbologies([
       SDC.Symbology.Code128,
@@ -1193,30 +1211,37 @@ async function startInlineCamera() {
       SDC.Symbology.EAN13UPCA,
       SDC.Symbology.EAN8,
       SDC.Symbology.UPCE,
-      SDC.Symbology.ITF,
+      SDC.Symbology.InterleavedTwoOfFive,
     ]);
+    const code39 = settings.settingsForSymbology(SDC.Symbology.Code39);
+    code39.activeSymbolCounts = [7, 8, 9, 10, 11, 12, 13, 14, 15];
     settings.codeDuplicateFilter = 1500;
 
-    scanditCapture = new SDC.BarcodeCapture(scanditContext, settings);
+    // 4. Create barcode capture
+    scanditCapture = await SDC.BarcodeCapture.forContext(scanditContext, settings);
+    await scanditCapture.setEnabled(false);
+
+    // 5. Add overlay with viewfinder
+    const overlay = await SDC.BarcodeCaptureOverlay.withBarcodeCaptureForView(scanditCapture, scanditView);
+    const viewfinder = new SDC.RectangularViewfinder(
+      SDC.RectangularViewfinderStyle.Square,
+      SDC.RectangularViewfinderLineStyle.Light
+    );
+    await overlay.setViewfinder(viewfinder);
+
+    // 6. Register scan listener
     scanditCapture.addListener({
-      didScan: (capture, session) => {
+      didScan: async (mode, session) => {
         if (state.scanDone) return;
-        const code = session.newlyRecognizedBarcodes[0].data;
-        handleScannedValue(code);
+        const barcode = session.newlyRecognizedBarcode;
+        if (!barcode) return;
+        handleScannedValue(barcode.data);
       }
     });
 
-    // Attach view to container
-    const container = document.querySelector('.viewfinder-container');
-    video.style.display = 'none';
-    scanditView = new SDC.DataCaptureView();
-    scanditView.context = scanditContext;
-    scanditView.connectToElement(container);
-    SDC.BarcodeCaptureOverlay.withBarcodeCapture(scanditCapture);
-
-    // Start camera
-    await SDC.Camera.default.switchToDesiredState(SDC.FrameSourceState.On);
-    scanditCapture.isEnabled = true;
+    // 7. Start scanning
+    await camera.switchToDesiredState(SDC.FrameSourceState.On);
+    await scanditCapture.setEnabled(true);
 
     errEl.style.display = 'none';
     console.log('Scandit v8 initialized successfully');
@@ -1240,7 +1265,7 @@ async function startInlineCamera() {
 
 function stopInlineCamera() {
   if (scanditCapture) {
-    try { scanditCapture.isEnabled = false; } catch(e) {}
+    try { scanditCapture.setEnabled(false); } catch(e) {}
     scanditCapture = null;
   }
   if (scanditView) {
