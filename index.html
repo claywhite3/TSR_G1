@@ -9,10 +9,10 @@
 <script type="importmap">
   {
     "imports": {
-      "@scandit/web-datacapture-core": "https://github.com/claywhite3/TSR_G1/tree/main/engine/@scandit/web-datacapture-core@8.x/build/js/index.js",
-      "@scandit/web-datacapture-barcode": "https://github.com/claywhite3/TSR_G1/tree/main/engine/@scandit/web-datacapture-barcode@8.x/build/js/index.js",
-      "@scandit/web-datacapture-core/": "https://github.com/claywhite3/TSR_G1/tree/main/engine/@scandit/web-datacapture-core@8.x/",
-      "@scandit/web-datacapture-barcode/": "https://github.com/claywhite3/TSR_G1/tree/main/engine/@scandit/web-datacapture-barcode@8.x/"
+      "@scandit/web-datacapture-core": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-core@8.x/build/js/index.js",
+      "@scandit/web-datacapture-barcode": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-barcode@8.x/build/js/index.js",
+      "@scandit/web-datacapture-core/": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-core@8.x/",
+      "@scandit/web-datacapture-barcode/": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-barcode@8.x/"
     }
   }
 </script>
@@ -691,6 +691,7 @@ const STORES = {
 
 // GOOGLE APPS SCRIPT URL — replace with your deployed web app URL
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwrPvub33lTqtgfNwtfdZEMyxPbxR39eBw5r2XGKMVO1gNySQ1G98ZHej9zd1Blp3_g/exec';
+const SCANDIT_ENGINE_LOCATION = new URL('./engine/', window.location.href).toString();
 
 // ═══════════════════════════════════════════
 // STATE
@@ -1194,7 +1195,7 @@ async function startInlineCamera() {
 
     // 2. Create context with license key, engine location, and barcode loader
     scanditContext = await SDC.DataCaptureContext.forLicenseKey(SCANDIT_KEY, {
-      libraryLocation: 'https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-barcode@8.x/build/engine/',
+      libraryLocation: SCANDIT_ENGINE_LOCATION,
       moduleLoaders: [SDC.barcodeCaptureLoader()]
     });
 
