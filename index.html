@@ -4,18 +4,45 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>TopStock Rail Scan</title>
-<script src="https://cdn.jsdelivr.net/npm/scandit-web-datacapture-barcode@6.x/build/index.js"></script>
-<script>
-  window.addEventListener('load', () => {
-    // Detect which global the SDK exposes
-    const possible = ['Scandit', 'ScanditBarcode', 'ScanditSDK', 'SDCBarcode', 'SDCCore'];
-    possible.forEach(name => {
-      if (typeof window[name] !== 'undefined') {
-        console.log('Scandit global found:', name, window[name]);
-        window.Scandit = window[name];
-      }
-    });
-  });
+<!-- es-module-shims for importmap support -->
+<script async src="https://ga.jspm.io/npm:es-module-shims@2.6.2/dist/es-module-shims.js"></script>
+<script type="importmap">
+  {
+    "imports": {
+      "@scandit/web-datacapture-core": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-core@8.1.0/build/js/index.js",
+      "@scandit/web-datacapture-barcode": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-barcode@8.1.0/build/js/index.js",
+      "@scandit/web-datacapture-core/": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-core@8.1.0/",
+      "@scandit/web-datacapture-barcode/": "https://cdn.jsdelivr.net/npm/@scandit/web-datacapture-barcode@8.1.0/"
+    }
+  }
+</script>
+<script type="module">
+  import {
+    DataCaptureContext,
+    DataCaptureView,
+    Camera,
+    FrameSourceState,
+  } from "@scandit/web-datacapture-core";
+  import {
+    BarcodeCapture,
+    BarcodeCaptureSettings,
+    BarcodeCaptureOverlay,
+    Symbology,
+    barcodeCaptureLoader,
+  } from "@scandit/web-datacapture-barcode";
+
+  window.ScanditSDK = {
+    DataCaptureContext,
+    DataCaptureView,
+    Camera,
+    FrameSourceState,
+    BarcodeCapture,
+    BarcodeCaptureSettings,
+    BarcodeCaptureOverlay,
+    Symbology,
+    barcodeCaptureLoader,
+  };
+  window.dispatchEvent(new Event('scandit-ready'));
 </script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -1137,14 +1164,21 @@ async function startInlineCamera() {
   const video  = document.getElementById('camera-video');
 
   try {
-    const SDC = Scandit;
+    // Wait for Scandit ES module to be ready
+    if (!window.ScanditSDK) {
+      await new Promise((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('Scandit timeout')), 8000);
+        window.addEventListener('scandit-ready', () => { clearTimeout(t); resolve(); }, { once: true });
+      });
+    }
+    const SDC = window.ScanditSDK;
+    if (!SDC || !SDC.DataCaptureContext) throw new Error('Scandit SDK not available');
 
-    await SDC.configure(SCANDIT_KEY, {
-      libraryLocation: 'https://cdn.jsdelivr.net/npm/scandit-web-datacapture-barcode@6.x/build/engine/'
-    });
-
+    // Configure context with license key and barcode loader
     scanditContext = await SDC.DataCaptureContext.create(SCANDIT_KEY);
+    await scanditContext.setFrameSource(SDC.Camera.default);
 
+    // Set up barcode capture settings
     const settings = new SDC.BarcodeCaptureSettings();
     settings.enableSymbologies([
       SDC.Symbology.Code128,
@@ -1166,17 +1200,18 @@ async function startInlineCamera() {
       }
     });
 
+    // Attach view to container
     const container = document.querySelector('.viewfinder-container');
     video.style.display = 'none';
     scanditView = await SDC.DataCaptureView.forContext(scanditContext, container);
-    const overlay = await SDC.BarcodeCaptureOverlay.withBarcodeCaptureForView(scanditCapture, scanditView);
+    await SDC.BarcodeCaptureOverlay.withBarcodeCaptureForView(scanditCapture, scanditView);
 
-    const camera = SDC.Camera.default;
-    await scanditContext.setFrameSource(camera);
-    await camera.switchToDesiredState(SDC.FrameSourceState.On);
+    // Start camera
+    await SDC.Camera.default.switchToDesiredState(SDC.FrameSourceState.On);
     scanditCapture.isEnabled = true;
 
     errEl.style.display = 'none';
+    console.log('Scandit v8 initialized successfully');
 
   } catch (e) {
     console.warn('Scandit failed, falling back to BarcodeDetector:', e);
