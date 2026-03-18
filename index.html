@@ -1118,6 +1118,9 @@ function renderSections() {
     item.onclick = () => openScanScreen(s);
     list.appendChild(item);
   });
+
+  // Build the scanner view while the user is reviewing sections.
+  prewarmScannerView().catch(() => {});
 }
 
 function startNextUnscannedSection() {
@@ -1268,6 +1271,8 @@ let scanditCamera = null;
 let scanditOverlay = null;
 let scanditInitPromise = null;
 let scanditContainer = null;
+let scanditViewWarmPromise = null;
+let scanditHasStartedOnce = false;
 
 async function waitForScanditSDK() {
   if (window.ScanditSDK) return window.ScanditSDK;
@@ -1367,6 +1372,22 @@ async function attachScanditView(container) {
   return SDC;
 }
 
+async function prewarmScannerView() {
+  const container = document.querySelector('.viewfinder-container');
+  if (!container) return;
+  if (scanditViewWarmPromise) return scanditViewWarmPromise;
+
+  scanditViewWarmPromise = (async () => {
+    try {
+      await attachScanditView(container);
+    } finally {
+      scanditViewWarmPromise = null;
+    }
+  })();
+
+  return scanditViewWarmPromise;
+}
+
 async function startInlineCamera() {
   stopInlineCamera();
   const errEl = document.getElementById('vf-camera-error');
@@ -1377,11 +1398,14 @@ async function startInlineCamera() {
     video.style.display = 'none';
     const SDC = await attachScanditView(container);
 
-    scanditView.showProgressBar();
+    if (!scanditHasStartedOnce) {
+      scanditView.showProgressBar();
+    }
     await scanditContext.setFrameSource(scanditCamera);
     await scanditCamera.switchToDesiredState(SDC.FrameSourceState.On);
     await scanditCapture.setEnabled(true);
     scanditView.hideProgressBar();
+    scanditHasStartedOnce = true;
 
     errEl.style.display = 'none';
     console.log('Scandit v8 initialized successfully');
