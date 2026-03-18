@@ -1,0 +1,1 @@
+export{a as WorkerMain}from'../chunks/chunk-7VVWXFDF.js';

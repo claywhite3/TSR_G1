@@ -1,0 +1,1 @@
+export{a as DataCaptureVersion}from'./chunks/chunk-TR5HATUD.js';

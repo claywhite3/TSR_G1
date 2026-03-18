@@ -1,0 +1,1 @@
+export{a as WorkerMain}from'../chunks/chunk-NY2HBST4.js';
