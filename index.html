@@ -1264,46 +1264,44 @@ const SCANDIT_KEY = 'AlUnDj2ZGkDRGfE9C/k6pAMRkzcwGSCpQw9DqXMuY2UaeBzEonCb84AoJC3
 let scanditContext = null;
 let scanditCapture = null;
 let scanditView = null;
+let scanditCamera = null;
+let scanditOverlay = null;
+let scanditInitPromise = null;
+let scanditContainer = null;
 
-async function startInlineCamera() {
-  stopInlineCamera();
-  const errEl = document.getElementById('vf-camera-error');
-  const video  = document.getElementById('camera-video');
+async function waitForScanditSDK() {
+  if (window.ScanditSDK) return window.ScanditSDK;
+  await new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('Scandit timeout')), 8000);
+    window.addEventListener('scandit-ready', () => {
+      clearTimeout(t);
+      resolve();
+    }, { once: true });
+  });
+  return window.ScanditSDK;
+}
 
-  try {
-    // Wait for Scandit ES module to be ready
-    if (!window.ScanditSDK) {
-      await new Promise((resolve, reject) => {
-        const t = setTimeout(() => reject(new Error('Scandit timeout')), 8000);
-        window.addEventListener('scandit-ready', () => { clearTimeout(t); resolve(); }, { once: true });
-      });
-    }
-    const SDC = window.ScanditSDK;
+async function ensureScanditInitialized() {
+  if (scanditContext && scanditCapture && scanditCamera) {
+    return window.ScanditSDK;
+  }
+  if (scanditInitPromise) {
+    return scanditInitPromise;
+  }
+
+  scanditInitPromise = (async () => {
+    const SDC = await waitForScanditSDK();
     if (!SDC || !SDC.DataCaptureContext) throw new Error('Scandit SDK not available');
 
-    const container = document.querySelector('.viewfinder-container');
-    video.style.display = 'none';
-
-    // 1. Create view and connect to container FIRST (before context)
-    scanditView = new SDC.DataCaptureView();
-    const camera = SDC.Camera.pickBestGuess();
+    scanditCamera = SDC.Camera.pickBestGuess();
     const cameraSettings = SDC.BarcodeCapture.recommendedCameraSettings;
-    await camera.applySettings(cameraSettings);
-    void camera.switchToDesiredState(SDC.FrameSourceState.On);
-    scanditView.connectToElement(container, { camera });
-    scanditView.showProgressBar();
+    await scanditCamera.applySettings(cameraSettings);
 
-    // 2. Create context with license key, engine location, and barcode loader
     scanditContext = await SDC.DataCaptureContext.forLicenseKey(SCANDIT_KEY, {
       libraryLocation: SCANDIT_ENGINE_LOCATION,
       moduleLoaders: [SDC.barcodeCaptureLoader()]
     });
 
-    scanditView.hideProgressBar();
-    await scanditView.setContext(scanditContext);
-    await scanditContext.setFrameSource(camera);
-
-    // 3. Configure barcode settings
     const settings = new SDC.BarcodeCaptureSettings();
     settings.enableSymbologies([
       SDC.Symbology.Code128,
@@ -1318,19 +1316,8 @@ async function startInlineCamera() {
     code39.activeSymbolCounts = [7, 8, 9, 10, 11, 12, 13, 14, 15];
     settings.codeDuplicateFilter = 1500;
 
-    // 4. Create barcode capture
     scanditCapture = await SDC.BarcodeCapture.forContext(scanditContext, settings);
     await scanditCapture.setEnabled(false);
-
-    // 5. Add overlay with viewfinder
-    const overlay = await SDC.BarcodeCaptureOverlay.withBarcodeCaptureForView(scanditCapture, scanditView);
-    const viewfinder = new SDC.RectangularViewfinder(
-      SDC.RectangularViewfinderStyle.Square,
-      SDC.RectangularViewfinderLineStyle.Light
-    );
-    await overlay.setViewfinder(viewfinder);
-
-    // 6. Register scan listener
     scanditCapture.addListener({
       didScan: async (mode, session) => {
         if (state.scanDone) return;
@@ -1340,9 +1327,61 @@ async function startInlineCamera() {
       }
     });
 
-    // 7. Start scanning
-    await camera.switchToDesiredState(SDC.FrameSourceState.On);
+    return SDC;
+  })();
+
+  try {
+    return await scanditInitPromise;
+  } catch (e) {
+    scanditInitPromise = null;
+    throw e;
+  }
+}
+
+async function attachScanditView(container) {
+  const SDC = await ensureScanditInitialized();
+
+  if (scanditView && scanditContainer === container) {
+    return SDC;
+  }
+
+  if (scanditView) {
+    try { scanditView.dispose(); } catch (e) {}
+    scanditView = null;
+    scanditOverlay = null;
+    scanditContainer = null;
+  }
+
+  scanditView = new SDC.DataCaptureView();
+  scanditView.connectToElement(container, { camera: scanditCamera });
+  await scanditView.setContext(scanditContext);
+
+  scanditOverlay = await SDC.BarcodeCaptureOverlay.withBarcodeCaptureForView(scanditCapture, scanditView);
+  const viewfinder = new SDC.RectangularViewfinder(
+    SDC.RectangularViewfinderStyle.Square,
+    SDC.RectangularViewfinderLineStyle.Light
+  );
+  await scanditOverlay.setViewfinder(viewfinder);
+  scanditContainer = container;
+
+  return SDC;
+}
+
+async function startInlineCamera() {
+  stopInlineCamera();
+  const errEl = document.getElementById('vf-camera-error');
+  const video  = document.getElementById('camera-video');
+
+  try {
+    const container = document.querySelector('.viewfinder-container');
+    video.style.display = 'none';
+    const SDC = await attachScanditView(container);
+
+    scanditView.showProgressBar();
+    await scanditContext.setFrameSource(scanditCamera);
+    await scanditCamera.switchToDesiredState(SDC.FrameSourceState.On);
     await scanditCapture.setEnabled(true);
+    scanditView.hideProgressBar();
 
     errEl.style.display = 'none';
     console.log('Scandit v8 initialized successfully');
@@ -1367,15 +1406,9 @@ async function startInlineCamera() {
 function stopInlineCamera() {
   if (scanditCapture) {
     try { scanditCapture.setEnabled(false); } catch(e) {}
-    scanditCapture = null;
   }
-  if (scanditView) {
-    try { scanditView.dispose(); } catch(e) {}
-    scanditView = null;
-  }
-  if (scanditContext) {
-    try { scanditContext.dispose(); } catch(e) {}
-    scanditContext = null;
+  if (scanditCamera && window.ScanditSDK) {
+    try { scanditCamera.switchToDesiredState(window.ScanditSDK.FrameSourceState.Off); } catch(e) {}
   }
   if (state.cameraStream) {
     state.cameraStream.getTracks().forEach(t => t.stop());
@@ -1615,6 +1648,11 @@ syncFromSheet().then(() => {
   document.getElementById('store-list-wrap').style.display = 'block';
   renderStoreIndex();
 });
+
+// Warm the Scandit engine in the background so the first scan screen opens faster.
+setTimeout(() => {
+  ensureScanditInitialized().catch(() => {});
+}, 300);
 </script>
 </body>
 </html>
