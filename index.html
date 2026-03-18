@@ -1495,7 +1495,13 @@ function stopInlineCamera() {
     try { scanditCapture.setEnabled(false); } catch(e) {}
   }
   if (scanditCamera && window.ScanditSDK) {
-    try { scanditCamera.switchToDesiredState(window.ScanditSDK.FrameSourceState.Off); } catch(e) {}
+    try { void scanditCamera.switchToDesiredState(window.ScanditSDK.FrameSourceState.Off); } catch(e) {}
+  }
+  if (scanditView) {
+    try { scanditView.dispose(); } catch(e) {}
+    scanditView = null;
+    scanditOverlay = null;
+    scanditContainer = null;
   }
   if (state.cameraStream) {
     state.cameraStream.getTracks().forEach(t => t.stop());
