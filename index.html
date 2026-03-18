@@ -379,6 +379,14 @@
   .submit-btn:hover { background: var(--blue-dark); }
   .submit-btn:active { transform: scale(0.98); }
   .submit-btn:disabled { background: var(--gray-300); box-shadow: none; cursor: not-allowed; }
+  .secondary-btn {
+    width: 100%; height: 48px; border-radius: 14px; border: 1.5px solid var(--gray-200);
+    background: white; color: var(--gray-700); font-size: 15px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-bottom: 14px; transition: all 0.15s; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .secondary-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .secondary-btn:active { transform: scale(0.98); }
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.4);
     display: none; align-items: flex-end; justify-content: center; z-index: 100;
@@ -510,6 +518,9 @@
     </div>
     <div class="list-label">Zones</div>
     <div class="zone-grid" id="zone-grid"></div>
+    <button class="secondary-btn" onclick="addZone()">
+      <span>＋</span> <span>Add Zone</span>
+    </button>
   </div>
 </div>
 
@@ -537,6 +548,9 @@
     </button>
     <div class="list-label">Aisles — Tap to Inspect</div>
     <div id="aisle-list"></div>
+    <button class="secondary-btn" onclick="addAisle()">
+      <span>＋</span> <span>Add Aisle</span>
+    </button>
   </div>
 </div>
 
@@ -564,6 +578,9 @@
     </button>
     <div class="list-label">Sections — Tap to Inspect</div>
     <div id="section-list"></div>
+    <button class="secondary-btn" onclick="addSection()">
+      <span>＋</span> <span>Add Section</span>
+    </button>
   </div>
 </div>
 
@@ -755,6 +772,85 @@ function goTo(screenId) {
   window.scrollTo(0, 0);
 }
 
+function sortZoneIds(ids) {
+  return [...ids].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+}
+
+function sortNumericIds(ids) {
+  return [...ids].sort((a, b) => Number(a) - Number(b));
+}
+
+function normalizeZoneId(value) {
+  return value.trim().toUpperCase();
+}
+
+function normalizeNumericId(value) {
+  return String(Number.parseInt(value.trim(), 10));
+}
+
+function addZone() {
+  const raw = window.prompt('Enter the new zone name (example: A or S1):');
+  if (raw == null) return;
+
+  const zoneId = normalizeZoneId(raw);
+  if (!zoneId) {
+    showToast('Zone name cannot be blank');
+    return;
+  }
+  if (STORES[state.storeId].zones[zoneId]) {
+    showToast(`Zone ${zoneId} already exists`);
+    return;
+  }
+
+  STORES[state.storeId].zones[zoneId] = {};
+  state.zoneId = zoneId;
+  renderZones();
+  showToast(`Zone ${zoneId} added`);
+}
+
+function addAisle() {
+  const raw = window.prompt(`Enter the new aisle number for Zone ${state.zoneId}:`);
+  if (raw == null) return;
+  if (!/^\d+$/.test(raw.trim())) {
+    showToast('Aisle must be a number');
+    return;
+  }
+
+  const aisleId = normalizeNumericId(raw);
+  const aisles = STORES[state.storeId].zones[state.zoneId];
+  if (aisles[aisleId]) {
+    showToast(`Aisle ${aisleId} already exists`);
+    return;
+  }
+
+  aisles[aisleId] = [];
+  state.aisleId = aisleId;
+  renderAisles();
+  showToast(`Aisle ${aisleId} added`);
+}
+
+function addSection() {
+  const raw = window.prompt(`Enter the new section number for Aisle ${state.aisleId}:`);
+  if (raw == null) return;
+  if (!/^\d+$/.test(raw.trim())) {
+    showToast('Section must be a number');
+    return;
+  }
+
+  const sectionId = Number.parseInt(raw.trim(), 10);
+  const sections = STORES[state.storeId].zones[state.zoneId][state.aisleId];
+  if (sections.includes(sectionId)) {
+    showToast(`Section ${sectionId} already exists`);
+    return;
+  }
+
+  sections.push(sectionId);
+  sections.sort((a, b) => a - b);
+  state.sectionId = sectionId;
+  renderSections();
+  showToast(`Section ${sectionId} added`);
+}
+
 // ═══════════════════════════════════════════
 // SCREEN 1 — STORE INDEX
 // ═══════════════════════════════════════════
@@ -849,7 +945,7 @@ function renderZones() {
 
   const grid = document.getElementById('zone-grid');
   grid.innerHTML = '';
-  const sortedZones = Object.keys(store.zones).sort();
+  const sortedZones = sortZoneIds(Object.keys(store.zones));
   sortedZones.forEach(zId => {
     const { total: zt, done: zd } = zoneProgress(state.storeId, zId);
     const zpct = zt ? Math.round(zd / zt * 100) : 0;
@@ -908,7 +1004,7 @@ function renderAisles() {
   label.textContent = remaining > 0 ? `Scan Next Section (${remaining} remaining)` : 'All Sections Scanned ✓';
   document.getElementById('aisles-install-btn').disabled = remaining === 0;
 
-  const sortedAisles = Object.keys(aisles).sort((a, b) => parseInt(a) - parseInt(b));
+  const sortedAisles = sortNumericIds(Object.keys(aisles));
   const list = document.getElementById('aisle-list');
   list.innerHTML = '';
   sortedAisles.forEach(aId => {
@@ -948,7 +1044,7 @@ function selectAisle(aisleId) {
 
 function startNextUnscanned() {
   const aisles = STORES[state.storeId].zones[state.zoneId];
-  const sortedAisles = Object.keys(aisles).sort((a, b) => parseInt(a) - parseInt(b));
+  const sortedAisles = sortNumericIds(Object.keys(aisles));
   for (const aId of sortedAisles) {
     for (const s of aisles[aId]) {
       if (!isScanned(state.storeId, state.zoneId, aId, s)) {
@@ -986,7 +1082,11 @@ function renderSections() {
   document.getElementById('sections-chips').innerHTML = '';
 
   const label = document.getElementById('sections-install-label');
-  label.textContent = remaining > 0 ? `Install Remaining ${remaining} Sections` : 'All Sections Scanned ✓';
+  label.textContent = total === 0
+    ? 'Add a Section to Start'
+    : remaining > 0
+      ? `Install Remaining ${remaining} Sections`
+      : 'All Sections Scanned ✓';
   document.getElementById('sections-install-btn').disabled = remaining === 0;
 
   const list = document.getElementById('section-list');
