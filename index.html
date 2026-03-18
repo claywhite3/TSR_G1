@@ -709,6 +709,7 @@ const STORES = {
 // GOOGLE APPS SCRIPT URL — replace with your deployed web app URL
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwrPvub33lTqtgfNwtfdZEMyxPbxR39eBw5r2XGKMVO1gNySQ1G98ZHej9zd1Blp3_g/exec';
 const SCANDIT_ENGINE_LOCATION = new URL('./engine/', window.location.href).toString();
+const CUSTOM_STRUCTURE_STORAGE_KEY = 'topstock-custom-structure-v1';
 
 // ═══════════════════════════════════════════
 // STATE
@@ -788,6 +789,89 @@ function normalizeNumericId(value) {
   return String(Number.parseInt(value.trim(), 10));
 }
 
+function loadCustomStructure() {
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_STRUCTURE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (e) {
+    console.warn('Failed to load custom structure:', e);
+    return {};
+  }
+}
+
+function saveCustomStructure(data) {
+  try {
+    window.localStorage.setItem(CUSTOM_STRUCTURE_STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.warn('Failed to save custom structure:', e);
+  }
+}
+
+function recordCustomZone(storeId, zoneId) {
+  const custom = loadCustomStructure();
+  if (!custom[storeId]) custom[storeId] = { zones: {} };
+  if (!custom[storeId].zones) custom[storeId].zones = {};
+  if (!custom[storeId].zones[zoneId]) custom[storeId].zones[zoneId] = {};
+  saveCustomStructure(custom);
+}
+
+function recordCustomAisle(storeId, zoneId, aisleId) {
+  const custom = loadCustomStructure();
+  if (!custom[storeId]) custom[storeId] = { zones: {} };
+  if (!custom[storeId].zones) custom[storeId].zones = {};
+  if (!custom[storeId].zones[zoneId]) custom[storeId].zones[zoneId] = {};
+  if (!Array.isArray(custom[storeId].zones[zoneId][aisleId])) {
+    custom[storeId].zones[zoneId][aisleId] = [];
+  }
+  saveCustomStructure(custom);
+}
+
+function recordCustomSection(storeId, zoneId, aisleId, sectionId) {
+  const custom = loadCustomStructure();
+  if (!custom[storeId]) custom[storeId] = { zones: {} };
+  if (!custom[storeId].zones) custom[storeId].zones = {};
+  if (!custom[storeId].zones[zoneId]) custom[storeId].zones[zoneId] = {};
+  if (!Array.isArray(custom[storeId].zones[zoneId][aisleId])) {
+    custom[storeId].zones[zoneId][aisleId] = [];
+  }
+  if (!custom[storeId].zones[zoneId][aisleId].includes(sectionId)) {
+    custom[storeId].zones[zoneId][aisleId].push(sectionId);
+    custom[storeId].zones[zoneId][aisleId].sort((a, b) => a - b);
+  }
+  saveCustomStructure(custom);
+}
+
+function mergeCustomStructure() {
+  const custom = loadCustomStructure();
+  Object.entries(custom).forEach(([storeId, storeData]) => {
+    if (!STORES[storeId]) return;
+    if (!storeData || !storeData.zones) return;
+
+    Object.entries(storeData.zones).forEach(([zoneId, aisles]) => {
+      if (!STORES[storeId].zones[zoneId]) {
+        STORES[storeId].zones[zoneId] = {};
+      }
+      if (!aisles || typeof aisles !== 'object') return;
+
+      Object.entries(aisles).forEach(([aisleId, sections]) => {
+        if (!Array.isArray(STORES[storeId].zones[zoneId][aisleId])) {
+          STORES[storeId].zones[zoneId][aisleId] = [];
+        }
+        if (!Array.isArray(sections)) return;
+
+        sections.forEach(sectionId => {
+          if (!STORES[storeId].zones[zoneId][aisleId].includes(sectionId)) {
+            STORES[storeId].zones[zoneId][aisleId].push(sectionId);
+          }
+        });
+        STORES[storeId].zones[zoneId][aisleId].sort((a, b) => a - b);
+      });
+    });
+  });
+}
+
 function addZone() {
   const raw = window.prompt('Enter the new zone name (example: A or S1):');
   if (raw == null) return;
@@ -803,6 +887,7 @@ function addZone() {
   }
 
   STORES[state.storeId].zones[zoneId] = {};
+  recordCustomZone(state.storeId, zoneId);
   state.zoneId = zoneId;
   renderZones();
   showToast(`Zone ${zoneId} added`);
@@ -824,6 +909,7 @@ function addAisle() {
   }
 
   aisles[aisleId] = [];
+  recordCustomAisle(state.storeId, state.zoneId, aisleId);
   state.aisleId = aisleId;
   renderAisles();
   showToast(`Aisle ${aisleId} added`);
@@ -846,6 +932,7 @@ function addSection() {
 
   sections.push(sectionId);
   sections.sort((a, b) => a - b);
+  recordCustomSection(state.storeId, state.zoneId, state.aisleId, sectionId);
   state.sectionId = sectionId;
   renderSections();
   showToast(`Section ${sectionId} added`);
@@ -1639,6 +1726,7 @@ function showToast(msg) {
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
+mergeCustomStructure();
 renderStoreIndex();
 // Show loading state, sync, then reveal stores with fresh data
 document.getElementById('sync-loading').style.display = 'flex';
