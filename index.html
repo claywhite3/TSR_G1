@@ -530,7 +530,7 @@
     <div class="app-label">TopStock Rail</div>
     <h1>Rail Scan</h1>
     <p>Select a store to begin scanning</p>
-    <div style="font-size:11px; color:var(--gray-400); margin-top:8px; font-weight:500;">v1.0.3</div>
+    <div style="font-size:11px; color:var(--gray-400); margin-top:8px; font-weight:500;">v1.0.4</div>
   </div>
 
   <!-- Sync loading state -->
@@ -1511,10 +1511,7 @@ async function ensureScanditInitialized() {
 async function attachScanditView(container) {
   const SDC = await ensureScanditInitialized();
 
-  if (scanditView && scanditContainer === container) {
-    return SDC;
-  }
-
+  // Always tear down — never reuse existing view even if same container
   if (scanditView) {
     try { scanditView.dispose(); } catch (e) {}
     scanditView = null;
@@ -1538,7 +1535,7 @@ async function attachScanditView(container) {
 }
 
 async function startInlineCamera() {
-  stopInlineCamera();
+  await stopInlineCamera();
   const errEl = document.getElementById('vf-camera-error');
   const video  = document.getElementById('camera-video');
 
@@ -1573,12 +1570,12 @@ async function startInlineCamera() {
   }
 }
 
-function stopInlineCamera() {
+async function stopInlineCamera() {
   if (scanditCapture) {
-    try { scanditCapture.setEnabled(false); } catch(e) {}
+    try { await scanditCapture.setEnabled(false); } catch(e) {}
   }
   if (scanditCamera && window.ScanditSDK) {
-    try { void scanditCamera.switchToDesiredState(window.ScanditSDK.FrameSourceState.Off); } catch(e) {}
+    try { await scanditCamera.switchToDesiredState(window.ScanditSDK.FrameSourceState.Off); } catch(e) {}
   }
   if (scanditView) {
     try { scanditView.dispose(); } catch(e) {}
@@ -1677,7 +1674,7 @@ function handleScannedValue(raw) {
 async function finalizeScan() {
   state.scanDone = true;
   beep('complete');
-  stopInlineCamera();
+  await stopInlineCamera();
 
   const rail   = state.scanRail   || '';
   const camera = state.scanCamera || '';
@@ -1729,7 +1726,7 @@ async function finalizeScan() {
   }
 }
 
-function rescanSection() {
+async function rescanSection() {
   // Clear existing scan data for this section
   state.scanRail   = null;
   state.scanCamera = null;
@@ -1745,7 +1742,7 @@ function rescanSection() {
   document.getElementById('manual-result').className = 'scan-result';
 
   updateScanCards();
-  startInlineCamera();
+  await startInlineCamera();
 }
 
 function goToNextFromScan() {
@@ -1754,8 +1751,8 @@ function goToNextFromScan() {
   }
 }
 
-function leaveScanScreen() {
-  stopInlineCamera();
+async function leaveScanScreen() {
+  await stopInlineCamera();
   goTo('screen-sections');
 }
 
