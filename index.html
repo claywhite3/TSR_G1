@@ -4,52 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>TopStock Rail Scan</title>
-<!-- es-module-shims for importmap support -->
-<script async src="https://ga.jspm.io/npm:es-module-shims@2.6.2/dist/es-module-shims.js"></script>
-<script type="importmap">
-  {
-    "imports": {
-      "@scandit/web-datacapture-core": "./vendor/scandit/core/package/build/js/index.js",
-      "@scandit/web-datacapture-barcode": "./vendor/scandit/barcode/package/build/js/index.js",
-      "@scandit/web-datacapture-core/": "./vendor/scandit/core/package/",
-      "@scandit/web-datacapture-barcode/": "./vendor/scandit/barcode/package/"
-    }
-  }
-</script>
-<script type="module">
-  import {
-    DataCaptureContext,
-    DataCaptureView,
-    Camera,
-    FrameSourceState,
-    RectangularViewfinder,
-    RectangularViewfinderStyle,
-    RectangularViewfinderLineStyle,
-  } from "@scandit/web-datacapture-core";
-  import {
-    BarcodeCapture,
-    BarcodeCaptureSettings,
-    BarcodeCaptureOverlay,
-    Symbology,
-    barcodeCaptureLoader,
-  } from "@scandit/web-datacapture-barcode";
-
-  window.ScanditSDK = {
-    DataCaptureContext,
-    DataCaptureView,
-    Camera,
-    FrameSourceState,
-    RectangularViewfinder,
-    RectangularViewfinderStyle,
-    RectangularViewfinderLineStyle,
-    BarcodeCapture,
-    BarcodeCaptureSettings,
-    BarcodeCaptureOverlay,
-    Symbology,
-    barcodeCaptureLoader,
-  };
-  window.dispatchEvent(new Event('scandit-ready'));
-</script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   
@@ -530,7 +484,7 @@
     <div class="app-label">TopStock Rail</div>
     <h1>Rail Scan</h1>
     <p>Select a store to begin scanning</p>
-    <div style="font-size:11px; color:var(--gray-400); margin-top:8px; font-weight:500;">v1.0.9</div>
+    <div style="font-size:11px; color:var(--gray-400); margin-top:8px; font-weight:500;">v1.1.1</div>
   </div>
 
   <!-- Sync loading state -->
@@ -650,15 +604,8 @@
   </div>
   <div class="content" style="padding:16px; display:flex; flex-direction:column; gap:14px;">
 
-    <!-- DEBUG PANEL -->
-    <div id="debug-panel" style="background:#0f172a; border-radius:10px; padding:10px 12px; font-family:monospace; font-size:11px; color:#94a3b8; max-height:120px; overflow-y:auto;">
-      <div style="color:#38bdf8; font-weight:700; margin-bottom:4px;">DEBUG LOG</div>
-      <div id="debug-log"></div>
-    </div>
-
     <!-- SCANNING STATE -->
     <div id="scan-active-view">
-      <div id="scan-debug-msg" style="font-size:11px; color:var(--red); font-family:monospace; margin-bottom:6px; min-height:14px;"></div>
       <div class="scan-instruction">
         <h2 id="scan-instruction-title">Scan the Rail</h2>
         <p id="scan-instruction-sub">Point your camera at the barcode to register it.</p>
@@ -798,7 +745,6 @@ const STORES = {
 
 // GOOGLE APPS SCRIPT URL — replace with your deployed web app URL
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwrPvub33lTqtgfNwtfdZEMyxPbxR39eBw5r2XGKMVO1gNySQ1G98ZHej9zd1Blp3_g/exec';
-const SCANDIT_ENGINE_LOCATION = new URL('./engine/', window.location.href).toString();
 const CUSTOM_STRUCTURE_STORAGE_KEY = 'topstock-custom-structure-v1';
 
 // ═══════════════════════════════════════════
@@ -1436,164 +1382,41 @@ function updateScanCards() {
   }
 }
 
-const SCANDIT_KEY = 'AlUnDj2ZGkDRGfE9C/k6pAMRkzcwGSCpQw9DqXMuY2UaeBzEonCb84AoJC3mQ1cMaFyltq5M3cQdT1gAZwC7HFx7r78OSHHC9Hl/CAcIRQ04Aui+AQqBIm80vkJaenhoFlM0Dv5KcuPVcTx43nNZsBhj+OfDdVZdvnwxZCNf8ZmrQ+1YRSE+QWNIK9CfVJkyMFZhS9BD8nfUQ97B6VhQygIOQ26DegCLV0Wed7IVEBDQSgorbHZVGAJeiC/kSY9XeFPq2v1FBb2ZFxJn/m6p2idt6HeEE7xIzECW/SxesuugUpMhu3nSg8tScG+gFX9u3Wo8VNRAouCbTePLBmyglBBT6p2kfGW/eiUv1S4OegaTM1+BvWqUOrVLFRxudz9iCVH71ExmvQ1MUuKr7mFcI2YLRZHidxd3GA8H0uJZNKGyY9nP/nraxEkdcZJ9XUgn73LVqThydq28E8yA3nqoMtoop6WEfgTMlnajwToTVLwiRmzTCTrWKnIZkP1KYYjCoVHbI7t4nNHjYCdjpzCaJOMZWuKhq7Z0FkJixDEF9OUIagq6gf01IXz/1N9BeP9LDIudX9X56tip6yzZbdzaCSCnvlJ2PrYJ0ocmm4qJnXNXju+njfqau9DgJWn7bucU4o2hUKVbaUCheLWorsVq+uJZ+PPqtLJ0TxFi8Q8mOaJG7ffU8yB081rn1dqEGKZ/b6hvUgCwpm5NwDtOD5di/ryYL+GDiuYmESzWtYIrwYp7E4VGrW9sE/B4ho3+kG6JClchA3AOZ/DOpzV8RF5ayI6CBM3PRvtlF4xC5Gx+z9KtIMOxw8PZv3hg6A6y9JskeJWiYj3EX+ELmITxKl7CsmHEPvjgbwJAO7mDAItDnh4r25LuHh11eB4lJqLJdvUUptMSk49hwY09mQby4Kz2YNhvhzYD1WJCWJT4cUR6iAzEXKBGFpWjmdH9e1Df9jfnlCe2oKD51JbjxcorauMzuKeS8I8iTFSJ5a1OREN+6GMUVy/0+dlUjia3c1rN+f8wOTdQyi782lRueVU75cqYdg4HD6HXl7R0beNhHkjBPfuuMHdX9M2qX9ALdSGSz7XMRH68CDUsVkoksICCi5UtMobZx5AnrnNmdxsIBAyI4yMEh07WMmLlAVLV2iWgboi/JWftQdZ775s24P9IV8uT1DVJv1W0Ik7204jQYUTzZyooClxw/e4w6Cx1HrnGDCTbwOk=';
-
-let scanditContext = null;
-let scanditCapture = null;
-let scanditView = null;
-let scanditCamera = null;
-let scanditOverlay = null;
-let scanditInitPromise = null;
-let scanditContainer = null;
-
-async function waitForScanditSDK() {
-  if (window.ScanditSDK) return window.ScanditSDK;
-  await new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error('Scandit timeout')), 8000);
-    window.addEventListener('scandit-ready', () => {
-      clearTimeout(t);
-      resolve();
-    }, { once: true });
-  });
-  return window.ScanditSDK;
-}
-
-async function ensureScanditInitialized() {
-  if (scanditContext && scanditCapture && scanditCamera) {
-    return window.ScanditSDK;
-  }
-  if (scanditInitPromise) {
-    return scanditInitPromise;
-  }
-
-  scanditInitPromise = (async () => {
-    const SDC = await waitForScanditSDK();
-    if (!SDC || !SDC.DataCaptureContext) throw new Error('Scandit SDK not available');
-
-    scanditCamera = SDC.Camera.pickBestGuess();
-    const cameraSettings = SDC.BarcodeCapture.recommendedCameraSettings;
-    await scanditCamera.applySettings(cameraSettings);
-
-    scanditContext = await SDC.DataCaptureContext.forLicenseKey(SCANDIT_KEY, {
-      libraryLocation: SCANDIT_ENGINE_LOCATION,
-      moduleLoaders: [SDC.barcodeCaptureLoader()]
-    });
-
-    const settings = new SDC.BarcodeCaptureSettings();
-    settings.enableSymbologies([
-      SDC.Symbology.Code128,
-      SDC.Symbology.Code39,
-      SDC.Symbology.Code93,
-      SDC.Symbology.EAN13UPCA,
-      SDC.Symbology.EAN8,
-      SDC.Symbology.UPCE,
-      SDC.Symbology.InterleavedTwoOfFive,
-    ]);
-    const code39 = settings.settingsForSymbology(SDC.Symbology.Code39);
-    code39.activeSymbolCounts = [7, 8, 9, 10, 11, 12, 13, 14, 15];
-    settings.codeDuplicateFilter = 1500;
-
-    scanditCapture = await SDC.BarcodeCapture.forContext(scanditContext, settings);
-    await scanditCapture.setEnabled(false);
-    scanditCapture.addListener({
-      didScan: async (mode, session) => {
-        if (state.scanDone) return;
-        const barcode = session.newlyRecognizedBarcode;
-        if (!barcode) return;
-        handleScannedValue(barcode.data);
-      }
-    });
-
-    return SDC;
-  })();
-
-  try {
-    return await scanditInitPromise;
-  } catch (e) {
-    scanditInitPromise = null;
-    throw e;
-  }
-}
-
-// Initialize Scandit view ONCE and reuse it — never dispose between sections.
-// Between sections we only pause/resume the camera, never tear down the SDK.
-async function ensureScanditViewAttached() {
-  const SDC = await ensureScanditInitialized();
-  const container = document.querySelector('.viewfinder-container');
-
-  if (scanditView && scanditContainer === container) {
-    return SDC; // already attached to correct container, reuse
-  }
-
-  // Only reach here on very first call
-  scanditView = new SDC.DataCaptureView();
-  scanditView.connectToElement(container, { camera: scanditCamera });
-  await scanditView.setContext(scanditContext);
-
-  scanditOverlay = await SDC.BarcodeCaptureOverlay.withBarcodeCaptureForView(scanditCapture, scanditView);
-  const viewfinder = new SDC.RectangularViewfinder(
-    SDC.RectangularViewfinderStyle.Square,
-    SDC.RectangularViewfinderLineStyle.Light
-  );
-  await scanditOverlay.setViewfinder(viewfinder);
-  scanditContainer = container;
-
-  return SDC;
-}
-
+// ═══════════════════════════════════════════
+// CAMERA — native BarcodeDetector, no Scandit
+// ═══════════════════════════════════════════
 async function startInlineCamera() {
   const errEl = document.getElementById('vf-camera-error');
   const video  = document.getElementById('camera-video');
-  video.style.display = 'none';
+
+  // Stop any existing stream first
+  await stopInlineCamera();
 
   try {
-    const SDC = await ensureScanditViewAttached();
-
-    scanditView.showProgressBar();
-    await scanditContext.setFrameSource(scanditCamera);
-    await scanditCamera.switchToDesiredState(SDC.FrameSourceState.On);
-    await scanditCapture.setEnabled(true);
-    scanditView.hideProgressBar();
-
+    state.cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    video.srcObject = state.cameraStream;
+    video.style.display = 'block';
     errEl.style.display = 'none';
 
+    // Wait for video to be ready before starting detection
+    await new Promise(resolve => {
+      if (video.readyState >= 2) { resolve(); return; }
+      video.addEventListener('canplay', resolve, { once: true });
+    });
+
+    startBarcodeDetection(video);
+
   } catch (e) {
-    const errMsg = e?.message || e?.toString() || 'unknown error';
-    console.warn('Scandit failed:', errMsg, e);
-
-    // Show the error visibly on screen for debugging
-    const dbg = document.getElementById('scan-debug-msg');
-    if (dbg) dbg.textContent = 'Scandit error: ' + errMsg;
-
-    video.style.display = 'block';
-    try {
-      state.cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
-      video.srcObject = state.cameraStream;
-      errEl.style.display = 'none';
-      startBarcodeDetection(video);
-    } catch (e2) {
-      errEl.style.display = 'flex';
-      showManualEntry();
-    }
+    console.warn('Camera failed:', e);
+    video.style.display = 'none';
+    errEl.style.display = 'flex';
+    showManualEntry();
   }
 }
 
 async function stopInlineCamera() {
-  // Pause only — do NOT dispose the view or tear down the SDK
-  if (scanditCapture) {
-    try { await scanditCapture.setEnabled(false); } catch(e) {}
-  }
-  if (scanditCamera && window.ScanditSDK) {
-    try { await scanditCamera.switchToDesiredState(window.ScanditSDK.FrameSourceState.Off); } catch(e) {}
-  }
-  // Manually clear any canvas Scandit left painted so no frozen frame shows
-  document.querySelectorAll('canvas').forEach(c => {
-    const ctx = c.getContext('2d');
-    if (ctx) ctx.clearRect(0, 0, c.width, c.height);
-  });
-  // Fallback path cleanup only
   if (state.cameraStream) {
     state.cameraStream.getTracks().forEach(t => t.stop());
     state.cameraStream = null;
@@ -1602,22 +1425,36 @@ async function stopInlineCamera() {
     clearInterval(state.scanInterval);
     state.scanInterval = null;
   }
+  const video = document.getElementById('camera-video');
+  if (video) {
+    video.srcObject = null;
+    video.style.display = 'none';
+  }
 }
 
 function startBarcodeDetection(video) {
   if (state.scanInterval) clearInterval(state.scanInterval);
+
   if ('BarcodeDetector' in window) {
     const detector = new BarcodeDetector({
       formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'itf', 'codabar', 'code_93']
     });
     state.scanInterval = setInterval(async () => {
       if (state.scanDone) return;
-      if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+      if (video.readyState < 2) return;
       try {
         const barcodes = await detector.detect(video);
         if (barcodes.length > 0) handleScannedValue(barcodes[0].rawValue);
       } catch (e) {}
     }, 250);
+  } else {
+    // BarcodeDetector not available — show manual entry
+    showManualEntry();
+    const errEl = document.getElementById('vf-camera-error');
+    if (errEl) {
+      errEl.style.display = 'flex';
+      errEl.querySelector('.vf-error-msg').textContent = 'Auto-scan unavailable on this browser — use manual entry';
+    }
   }
 }
 
@@ -1923,19 +1760,11 @@ function showToast(msg) {
 // ═══════════════════════════════════════════
 mergeCustomStructure();
 renderStoreIndex();
-// Show stores immediately with local data, sync in background
 document.getElementById('sync-loading').style.display = 'none';
 document.getElementById('store-list-wrap').style.display = 'block';
 syncFromSheet().then(() => {
   renderStoreIndex();
-}).catch(() => {
-  // Sync failed silently — local data already showing
-});
-
-// Warm the Scandit engine in the background so the first scan screen opens faster.
-setTimeout(() => {
-  ensureScanditInitialized().catch(() => {});
-}, 300);
+}).catch(() => {});
 </script>
 </body>
 </html>
