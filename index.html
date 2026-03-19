@@ -469,6 +469,55 @@
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 2px; }
+
+  /* ── DELETE / PIN ── */
+  .delete-section-link {
+    font-size: 12px; color: var(--gray-400); text-decoration: underline;
+    text-underline-offset: 2px; cursor: pointer; display: inline-block;
+    margin-top: 10px; margin-bottom: 24px;
+  }
+  .delete-section-link:active { color: var(--red); }
+
+  .pin-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: none; align-items: flex-end; justify-content: center;
+    z-index: 200; backdrop-filter: blur(4px);
+  }
+  .pin-modal-overlay.show { display: flex; }
+  .pin-modal {
+    background: white; border-radius: 24px 24px 0 0;
+    padding: 28px 24px 40px; width: 100%; max-width: 400px;
+    animation: slideUp 0.25s ease;
+  }
+  .pin-modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .pin-modal p { font-size: 14px; color: var(--gray-500); margin-bottom: 20px; }
+  .pin-display {
+    display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;
+  }
+  .pin-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--gray-300); background: transparent;
+    transition: all 0.15s;
+  }
+  .pin-dot.filled { background: var(--gray-900); border-color: var(--gray-900); }
+  .pin-dot.error { background: var(--red); border-color: var(--red); }
+  .pin-keypad {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .pin-key {
+    height: 56px; border-radius: 14px; border: 1.5px solid var(--gray-200);
+    background: var(--gray-50); font-size: 20px; font-weight: 600;
+    color: var(--gray-900); cursor: pointer; transition: all 0.1s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pin-key:active { background: var(--gray-200); transform: scale(0.95); }
+  .pin-key.delete-key { font-size: 16px; color: var(--gray-500); }
+  .pin-key.cancel-key { font-size: 14px; color: var(--gray-500); grid-column: span 3;
+    background: white; height: 48px; }
+  .pin-error-msg {
+    text-align: center; font-size: 13px; font-weight: 600;
+    color: var(--red); margin-bottom: 12px; min-height: 18px;
+  }
 </style>
 </head>
 <body>
@@ -581,6 +630,7 @@
     <button class="secondary-btn" onclick="addSection()">
       <span>＋</span> <span>Add Section</span>
     </button>
+    <span class="delete-section-link" onclick="openDeletePin()">delete section</span>
   </div>
 </div>
 
@@ -673,6 +723,38 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- PIN MODAL — delete section -->
+<div class="pin-modal-overlay" id="pin-modal-overlay">
+  <div class="pin-modal">
+    <h3>Delete Section</h3>
+    <p id="pin-modal-desc">Enter PIN to delete Section</p>
+    <div class="pin-display">
+      <div class="pin-dot" id="pin-dot-0"></div>
+      <div class="pin-dot" id="pin-dot-1"></div>
+      <div class="pin-dot" id="pin-dot-2"></div>
+      <div class="pin-dot" id="pin-dot-3"></div>
+      <div class="pin-dot" id="pin-dot-4"></div>
+      <div class="pin-dot" id="pin-dot-5"></div>
+    </div>
+    <div class="pin-error-msg" id="pin-error-msg"></div>
+    <div class="pin-keypad">
+      <button class="pin-key" onclick="pinKey('1')">1</button>
+      <button class="pin-key" onclick="pinKey('2')">2</button>
+      <button class="pin-key" onclick="pinKey('3')">3</button>
+      <button class="pin-key" onclick="pinKey('4')">4</button>
+      <button class="pin-key" onclick="pinKey('5')">5</button>
+      <button class="pin-key" onclick="pinKey('6')">6</button>
+      <button class="pin-key" onclick="pinKey('7')">7</button>
+      <button class="pin-key" onclick="pinKey('8')">8</button>
+      <button class="pin-key" onclick="pinKey('9')">9</button>
+      <button class="pin-key delete-key" onclick="pinKey('del')">⌫</button>
+      <button class="pin-key" onclick="pinKey('0')">0</button>
+      <button class="pin-key delete-key" onclick="pinKey('del')"></button>
+      <button class="pin-key cancel-key" onclick="closePinModal()">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -1455,7 +1537,7 @@ async function attachScanditView(container) {
 }
 
 async function startInlineCamera() {
-  await stopInlineCamera();
+  stopInlineCamera();
   const errEl = document.getElementById('vf-camera-error');
   const video  = document.getElementById('camera-video');
 
@@ -1490,12 +1572,12 @@ async function startInlineCamera() {
   }
 }
 
-async function stopInlineCamera() {
+function stopInlineCamera() {
   if (scanditCapture) {
-    try { await scanditCapture.setEnabled(false); } catch(e) {}
+    try { scanditCapture.setEnabled(false); } catch(e) {}
   }
   if (scanditCamera && window.ScanditSDK) {
-    try { await scanditCamera.switchToDesiredState(window.ScanditSDK.FrameSourceState.Off); } catch(e) {}
+    try { void scanditCamera.switchToDesiredState(window.ScanditSDK.FrameSourceState.Off); } catch(e) {}
   }
   if (scanditView) {
     try { scanditView.dispose(); } catch(e) {}
@@ -1512,7 +1594,11 @@ async function stopInlineCamera() {
     state.scanInterval = null;
   }
   const video = document.getElementById('camera-video');
-  if (video) video.style.display = 'block';
+  if (video) {
+    video.srcObject = null;
+    video.load();
+    video.style.display = 'none';
+  }
 }
 
 function startBarcodeDetection(video) {
@@ -1591,7 +1677,7 @@ function handleScannedValue(raw) {
 async function finalizeScan() {
   state.scanDone = true;
   beep('complete');
-  await stopInlineCamera();
+  stopInlineCamera();
 
   const rail   = state.scanRail   || '';
   const camera = state.scanCamera || '';
@@ -1709,6 +1795,106 @@ function submitManualEntry() {
     result.textContent = `✓ ${type === 'rail' ? 'Rail' : 'Camera'} code saved: ${value}`;
     result.className = 'scan-result show ok';
   }
+}
+
+// ═══════════════════════════════════════════
+// DELETE SECTION — PIN PROTECTION
+// ═══════════════════════════════════════════
+const DELETE_PIN = '163002';
+let pinBuffer = '';
+let pinTargetSection = null;
+
+function openDeletePin() {
+  const sections = STORES[state.storeId]?.zones[state.zoneId]?.[state.aisleId];
+  if (!sections || sections.length === 0) {
+    showToast('No sections to delete');
+    return;
+  }
+  pinBuffer = '';
+  pinTargetSection = null;
+  document.getElementById('pin-modal-desc').textContent = `Enter PIN to delete a section`;
+  document.getElementById('pin-error-msg').textContent = '';
+  updatePinDots();
+  document.getElementById('pin-modal-overlay').classList.add('show');
+}
+
+function closePinModal() {
+  document.getElementById('pin-modal-overlay').classList.remove('show');
+  pinBuffer = '';
+  pinTargetSection = null;
+  document.getElementById('pin-error-msg').textContent = '';
+  updatePinDots();
+}
+
+function updatePinDots(state = 'normal') {
+  for (let i = 0; i < 6; i++) {
+    const dot = document.getElementById(`pin-dot-${i}`);
+    dot.className = 'pin-dot';
+    if (state === 'error') dot.classList.add('error');
+    else if (i < pinBuffer.length) dot.classList.add('filled');
+  }
+}
+
+function pinKey(val) {
+  if (val === 'del') {
+    pinBuffer = pinBuffer.slice(0, -1);
+    document.getElementById('pin-error-msg').textContent = '';
+    updatePinDots();
+    return;
+  }
+  if (pinBuffer.length >= 6) return;
+  pinBuffer += val;
+  updatePinDots();
+
+  if (pinBuffer.length === 6) {
+    if (pinBuffer === DELETE_PIN) {
+      // PIN correct — ask which section to delete
+      closePinModal();
+      promptDeleteSection();
+    } else {
+      updatePinDots('error');
+      document.getElementById('pin-error-msg').textContent = 'Incorrect PIN';
+      setTimeout(() => {
+        pinBuffer = '';
+        document.getElementById('pin-error-msg').textContent = '';
+        updatePinDots();
+      }, 1200);
+    }
+  }
+}
+
+function promptDeleteSection() {
+  const sections = STORES[state.storeId].zones[state.zoneId][state.aisleId];
+  if (sections.length === 0) { showToast('No sections to delete'); return; }
+
+  const sectionStr = sections.join(', ');
+  const raw = window.prompt(`Which section do you want to delete?\nAvailable: ${sectionStr}`);
+  if (raw == null) return;
+
+  const sectionId = Number.parseInt(raw.trim(), 10);
+  if (!sections.includes(sectionId)) {
+    showToast(`Section ${sectionId} not found`);
+    return;
+  }
+
+  // Remove from STORES
+  const idx = sections.indexOf(sectionId);
+  sections.splice(idx, 1);
+
+  // Remove from custom structure
+  const custom = loadCustomStructure();
+  const customSections = custom[state.storeId]?.zones?.[state.zoneId]?.[state.aisleId];
+  if (Array.isArray(customSections)) {
+    const ci = customSections.indexOf(sectionId);
+    if (ci !== -1) customSections.splice(ci, 1);
+    saveCustomStructure(custom);
+  }
+
+  // Clear any scan data for this section
+  delete state.scans[scanKey(state.storeId, state.zoneId, state.aisleId, sectionId)];
+
+  renderSections();
+  showToast(`Section ${sectionId} deleted`);
 }
 
 // Allow Enter key in manual input
