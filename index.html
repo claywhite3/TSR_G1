@@ -530,7 +530,7 @@
     <div class="app-label">TopStock Rail</div>
     <h1>Rail Scan</h1>
     <p>Select a store to begin scanning</p>
-    <div style="font-size:11px; color:var(--gray-400); margin-top:8px; font-weight:500;">v1.0.6</div>
+    <div style="font-size:11px; color:var(--gray-400); margin-top:8px; font-weight:500;">v1.0.7</div>
   </div>
 
   <!-- Sync loading state -->
@@ -658,6 +658,7 @@
 
     <!-- SCANNING STATE -->
     <div id="scan-active-view">
+      <div id="scan-debug-msg" style="font-size:11px; color:var(--red); font-family:monospace; margin-bottom:6px; min-height:14px;"></div>
       <div class="scan-instruction">
         <h2 id="scan-instruction-title">Scan the Rail</h2>
         <p id="scan-instruction-sub">Point your camera at the barcode to register it.</p>
@@ -1557,7 +1558,13 @@ async function startInlineCamera() {
     errEl.style.display = 'none';
 
   } catch (e) {
-    console.warn('Scandit failed, falling back to BarcodeDetector:', e);
+    const errMsg = e?.message || e?.toString() || 'unknown error';
+    console.warn('Scandit failed:', errMsg, e);
+
+    // Show the error visibly on screen for debugging
+    const dbg = document.getElementById('scan-debug-msg');
+    if (dbg) dbg.textContent = 'Scandit error: ' + errMsg;
+
     video.style.display = 'block';
     try {
       state.cameraStream = await navigator.mediaDevices.getUserMedia({
