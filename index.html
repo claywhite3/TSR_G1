@@ -1596,7 +1596,6 @@ function stopInlineCamera() {
   const video = document.getElementById('camera-video');
   if (video) {
     video.srcObject = null;
-    video.load();
     video.style.display = 'none';
   }
 }
