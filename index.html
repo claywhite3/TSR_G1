@@ -530,7 +530,7 @@
     <div class="app-label">TopStock Rail</div>
     <h1>Rail Scan</h1>
     <p>Select a store to begin scanning</p>
-    <div style="font-size:11px; color:var(--gray-400); margin-top:8px; font-weight:500;">v1.0.7</div>
+    <div style="font-size:11px; color:var(--gray-400); margin-top:8px; font-weight:500;">v1.0.8</div>
   </div>
 
   <!-- Sync loading state -->
@@ -1587,6 +1587,14 @@ async function stopInlineCamera() {
   }
   if (scanditCamera && window.ScanditSDK) {
     try { await scanditCamera.switchToDesiredState(window.ScanditSDK.FrameSourceState.Off); } catch(e) {}
+  }
+  // Manually clear any canvas Scandit left painted so no frozen frame shows
+  const container = document.querySelector('.viewfinder-container');
+  if (container) {
+    container.querySelectorAll('canvas').forEach(c => {
+      const ctx = c.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, c.width, c.height);
+    });
   }
   // Fallback path cleanup only
   if (state.cameraStream) {
