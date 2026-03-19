@@ -1455,7 +1455,7 @@ async function attachScanditView(container) {
 }
 
 async function startInlineCamera() {
-  stopInlineCamera();
+  await stopInlineCamera();
   const errEl = document.getElementById('vf-camera-error');
   const video  = document.getElementById('camera-video');
 
@@ -1490,12 +1490,12 @@ async function startInlineCamera() {
   }
 }
 
-function stopInlineCamera() {
+async function stopInlineCamera() {
   if (scanditCapture) {
-    try { scanditCapture.setEnabled(false); } catch(e) {}
+    try { await scanditCapture.setEnabled(false); } catch(e) {}
   }
   if (scanditCamera && window.ScanditSDK) {
-    try { void scanditCamera.switchToDesiredState(window.ScanditSDK.FrameSourceState.Off); } catch(e) {}
+    try { await scanditCamera.switchToDesiredState(window.ScanditSDK.FrameSourceState.Off); } catch(e) {}
   }
   if (scanditView) {
     try { scanditView.dispose(); } catch(e) {}
@@ -1591,7 +1591,7 @@ function handleScannedValue(raw) {
 async function finalizeScan() {
   state.scanDone = true;
   beep('complete');
-  stopInlineCamera();
+  await stopInlineCamera();
 
   const rail   = state.scanRail   || '';
   const camera = state.scanCamera || '';
